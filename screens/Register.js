@@ -1,105 +1,227 @@
-import { Alert, View } from "react-native";
-import { Button, HelperText, Text, TextInput } from 'react-native-paper';
-import { useState } from "react";
-import firestore from "@react-native-firebase/firestore"
-import auth from "@react-native-firebase/auth"
+import React, { useState } from "react";
+import {
+  Alert,
+  View,
+  StyleSheet,
+  TouchableOpacity,
+  Text as RNText,
+  KeyboardAvoidingView,
+  ScrollView,
+  Platform
+} from "react-native";
+import {
+  Button,
+  HelperText,
+  TextInput,
+  useTheme
+} from 'react-native-paper';
+import firestore from "@react-native-firebase/firestore";
+import auth from "@react-native-firebase/auth";
 
 const Register = ({ navigation }) => {
-  const [fullName, setFullName] = useState("")
-  const [email, setEmail] = useState("")
-  const [password, setPassword] = useState("")
-  const [passwordConfirm, setPasswordConfirm] = useState("")
-  const [hiddenPassword, setHiddenPassword] = useState(true)
-  const [hiddenPasswordConfirm, setHiddenPasswordConfirm] = useState(false)
-  const [phone, setPhone] = useState("")
-  const [address, setAddress] = useState("")
-  const hasErrorFullName = () => fullName == ""
-  const hasErrorEmail = () => !email.includes("@")
-  const hassErrorPassword = () => password.length < 6
-  const hassErrorPasswordConfirm = () => passwordConfirm != password
-  const USERS = firestore().collection("USERS")
-  const handleCreateAccount = () => {
-    auth().createUserWithEmailAndPassword(email, password)
-      .then(reponse => {
-        USERS.doc(email).set({
+  const { colors } = useTheme();
+  const [fullName, setFullName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [passwordConfirm, setPasswordConfirm] = useState("");
+  const [phone, setPhone] = useState("");
+  const [address, setAddress] = useState("");
+
+  const [hiddenPassword, setHiddenPassword] = useState(true);
+  const [hiddenPasswordConfirm, setHiddenPasswordConfirm] = useState(true);
+
+  const [errors, setErrors] = useState({});
+
+  const USERS = firestore().collection("USERS");
+
+  const validateForm = () => {
+    let newErrors = {};
+
+    if (fullName.trim() === "") {
+      newErrors.fullName = "Full name is required";
+    }
+
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      newErrors.email = "Invalid email address";
+    }
+
+    if (password.length < 6) {
+      newErrors.password = "Password must be at least 6 characters";
+    }
+
+    if (password !== passwordConfirm) {
+      newErrors.passwordConfirm = "Passwords do not match";
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const handleCreateAccount = async () => {
+    if (validateForm()) {
+      try {
+        const response = await auth().createUserWithEmailAndPassword(email, password);
+        await USERS.doc(email).set({
           fullName,
           email,
-          password,
+          password, // Remember to hash the password securely!
           phone,
           address,
-          role: "customer"
-        })
-        navigation.navigate("Login")
-      })
-      .catch(e => Alert.alert("Tai khoan ton tai"))
-  }
+          role: "customer",
+        });
+        Alert.alert("Success", "Account created successfully!");
+        navigation.navigate("Login");
+      } catch (e) {
+        Alert.alert("Error", e.message);
+      }
+    }
+  };
 
   return (
-    <View style = {{flex: 1, padding: 10}}>
-      <Text style ={{
-        fontSize: 30,
-        fontWeight: "bold",
-        alignSelf: "center",
-        color: "pink",
-        marginTop: 50,
-        marginBottom: 50
-      }}>Reigster New Account</Text>
-      <TextInput
-      label={"Full Name"}
-      value={fullName}
-      onChangeText={setFullName}/>
-      <HelperText type="error" visible={hasErrorFullName()}>
-        Full name khong duoc phep de trong</HelperText>
-        <TextInput
-        label={"Email"}
-        value={email}
-        onChangeText={setEmail}
-        />
-        <HelperText type="error" visible={hasErrorEmail()}>
-          Dia chi email khong hop le
-        </HelperText>
-        <TextInput
-        label={"Password"}
-        value={password}
-        onChangeText={setPassword}
-        secureTextEntry={hiddenPassword}
-        right={ <TextInput.Icon icon={"eye"} 
-          onPress={() => setHiddenPassword(!hiddenPassword)}/>}
-        />
-        <HelperText type="error" visible={hassErrorPassword()}
-        >Password it nhat 6 ki tu</HelperText>
-        <TextInput
-        label={"Confirm Password"}
-        value={passwordConfirm}
-        onChangeText={setPasswordConfirm}
-        secureTextEntry={!hiddenPasswordConfirm}
-        right = {<TextInput.Icon icon={"eye"} onPress={() => setHiddenPasswordConfirm(!hiddenPasswordConfirm)}/>}
-        />
-        <HelperText type="error" visible={hassErrorPasswordConfirm()}>
-          Confirm Passowrd phai so khop voi password
-        </HelperText>
-        <TextInput
-        label={"Address"}
-        value= {address}
-        onChangeText={setAddress}
-        style={{marginBottom: 20}}
-        />
-        <TextInput
-        label={"Phone"}
-        value= {phone}
-        onChangeText={setAddress}
-        style={{marginBottom: 20}}
-        />
-        <Button mode="contained" fyconTe
-        onPress={handleCreateAccount}> Create New Account</Button>
-        <View style={{ flexDirection: "row", justifyContent: "center", alignItems:"center"}}>
-          <Text>Do you have an account ?</Text>
-          <Button
-          onPress={() =>navigation.navigate("Login")}
-          >Login</Button>
-    </View>
-    </View>
-  )
-}
+    <KeyboardAvoidingView
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
+      style={styles.container}
+    >
+      <ScrollView contentContainerStyle={styles.contentContainer}>
+        <View style={styles.content}>
+          <RNText style={[styles.title, { color: colors.primary }]}>Create Account</RNText>
 
-export default Register
+          <TextInput
+            label="Full Name"
+            value={fullName}
+            onChangeText={setFullName}
+            mode="outlined"
+            style={styles.input}
+          />
+          <HelperText type="error" visible={!!errors.fullName}>
+            {errors.fullName}
+          </HelperText>
+
+          <TextInput
+            label="Email"
+            value={email}
+            onChangeText={setEmail}
+            keyboardType="email-address"
+            mode="outlined"
+            style={styles.input}
+          />
+          <HelperText type="error" visible={!!errors.email}>
+            {errors.email}
+          </HelperText>
+
+          <TextInput
+            label="Password"
+            value={password}
+            onChangeText={setPassword}
+            secureTextEntry={hiddenPassword}
+            mode="outlined"
+            style={styles.input}
+            right={
+              <TextInput.Icon
+                icon={hiddenPassword ? "eye-off" : "eye"}
+                onPress={() => setHiddenPassword(!hiddenPassword)}
+              />
+            }
+          />
+          <HelperText type="error" visible={!!errors.password}>
+            {errors.password}
+          </HelperText>
+
+          <TextInput
+            label="Confirm Password"
+            value={passwordConfirm}
+            onChangeText={setPasswordConfirm}
+            secureTextEntry={hiddenPasswordConfirm}
+            mode="outlined"
+            style={styles.input}
+            right={
+              <TextInput.Icon
+                icon={hiddenPasswordConfirm ? "eye-off" : "eye"}
+                onPress={() => setHiddenPasswordConfirm(!hiddenPasswordConfirm)}
+              />
+            }
+          />
+          <HelperText type="error" visible={!!errors.passwordConfirm}>
+            {errors.passwordConfirm}
+          </HelperText>
+
+          <TextInput
+            label="Address"
+            value={address}
+            onChangeText={setAddress}
+            mode="outlined"
+            style={styles.input}
+          />
+
+          <TextInput
+            label="Phone"
+            value={phone}
+            onChangeText={setPhone}
+            keyboardType="phone-pad"
+            mode="outlined"
+            style={styles.input}
+          />
+
+          <Button
+            mode="contained"
+            onPress={handleCreateAccount}
+            style={styles.button}
+          >
+            Create Account
+          </Button>
+
+          <View style={styles.loginContainer}>
+            <RNText>Already have an account?</RNText>
+            <TouchableOpacity onPress={() => navigation.navigate("Login")}>
+              <RNText style={styles.loginLink}> Login</RNText>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </ScrollView>
+    </KeyboardAvoidingView>
+  );
+};
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+  },
+  contentContainer: {
+    padding: 20,
+    justifyContent: 'center',
+  },
+  content: {
+    backgroundColor: 'white',
+    padding: 20,
+    borderRadius: 10,
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+  },
+  title: {
+    fontSize: 24,
+    fontWeight: "bold",
+    textAlign: "center",
+    marginBottom: 30,
+  },
+  input: {
+    marginBottom: 10,
+  },
+  button: {
+    marginTop: 20,
+    padding: 10,
+  },
+  loginContainer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    marginTop: 20,
+  },
+  loginLink: {
+    color: 'blue',
+    marginLeft: 5,
+  },
+});
+
+export default Register;
